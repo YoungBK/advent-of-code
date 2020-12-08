@@ -46,7 +46,7 @@ defmodule AdventOfCode202008.B do
     {next_idx + 1, Map.put(program, next_idx, {cmd, String.to_integer(numstr)})}
   end
 
-  def execute(program, {acc, executed, idx}) do
+  def execute_line(program, {acc, executed, idx}) do
     case Map.get(program, idx) do
       {"acc", amount} -> {acc + amount, Map.put(executed, idx, 1), idx + 1}
       {"jmp", amount} -> {acc, Map.put(executed, idx, 1), idx + amount}
@@ -54,32 +54,28 @@ defmodule AdventOfCode202008.B do
     end
   end
 
-  def execute_quit_before_loop({last, program}, {acc, executed, idx} = state \\ {0, %{}, 0}) do
-    if last == idx do
-      acc
-    else
-      case Map.get(executed, idx, 0) do
-        0 -> execute_quit_before_loop({last, program}, execute(program, state))
-        1 -> nil
-      end
+  def execute({last, program}, {acc, executed, idx} = state \\ {0, %{}, 0}) do
+    cond do
+      last == idx -> acc
+      Map.get(executed, idx, 0) == 1 -> nil
+      Map.get(executed, idx, 0) == 0 -> execute({last, program}, execute_line(program, state))
     end
   end
 
-  def try_program({last, program}, {idx, {"jmp", amount}}) do
-    execute_quit_before_loop({last, Map.put(program, idx, {"nop",amount})})
-  end
-  def try_program({last, program}, {idx, {"nop", amount}}) do
-    execute_quit_before_loop({last, Map.put(program, idx, {"jmp",amount})})
-  end
-    
-  def exec(list) do
-    {last, program} = list
-    |> Enum.map(&parse_line/1)
-    |> Enum.reduce({0, %{}}, &create_program/2)
+  def try_program({last, program}, {idx, {"jmp", amount}}), do: execute({last, Map.put(program, idx, {"nop",amount})})
+  def try_program({last, program}, {idx, {"nop", amount}}), do: execute({last, Map.put(program, idx, {"jmp",amount})})
 
+  def exec_possibles({last, program}) do
     program
     |> Enum.filter(fn {_k,{v,_a}} -> v == "jmp" || v == "nop" end)
     |> Enum.map(&try_program({last,program}, &1))
     |> Enum.reject(&(&1 == nil))
+  end
+
+  def exec(list) do
+    list
+    |> Enum.map(&parse_line/1)
+    |> Enum.reduce({0, %{}}, &create_program/2)
+    |> exec_possibles()
   end
 end
